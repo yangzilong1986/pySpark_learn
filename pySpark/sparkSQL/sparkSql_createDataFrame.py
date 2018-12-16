@@ -63,7 +63,21 @@ def create_dataframe_by_range(spark):
 if __name__ == '__main__':
     spark = create_spark_sql()
 
+    # spark.readStream.load().writeStream
+    #
+    # spark.read.load().write
+
     dataFrame = create_dataframe_by_range(spark)
     dataFrame.show()
 
     spark.stop()
+
+    """
+        dataFrame=>dataFrameReader(read),dataStreamReader(readStream);
+                   dataFrameWriter(write),dataStreamWriter(writeStream);
+        
+    """
+
+
+
+

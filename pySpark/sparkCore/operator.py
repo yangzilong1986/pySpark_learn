@@ -12,27 +12,29 @@ from operator import gt
     pysoark关键算子    
 """
 
-def generateSparkContext():
-    conf=SparkConf()
-    conf.set("master","local")
 
-    sc=SparkContext(conf=conf)
+def generateSparkContext():
+    conf = SparkConf()
+    conf.set("master", "local")
+
+    sc = SparkContext(conf=conf)
     return sc
+
 
 def accumulator_usecase(sc):
     """
         sparkContext自定义累加器,累加器可以与sparkStreaming的upstateByKey算子进行对比
                 获取新数据,在原有数据基础上进行累加
     """
-    acc=sc.accumulator(0)
+    acc = sc.accumulator(0)
 
     def acc_add(a):
         acc.add(a)
         return a
 
-    rdd=sc.parallelize(np.arange(100)).\
-            map(acc_add).\
-            collect()
+    rdd = sc.parallelize(np.arange(100)). \
+        map(acc_add). \
+        collect()
 
     print(acc.value)
 
@@ -46,21 +48,21 @@ def addFiles_usecase(sc):
         配置参数的获取可以同样可以通过定义一个python文件来设置,python文件会在程序提交过程
         中在每个worker中复制一份,相关参数可以直接通过配置文件获取
     """
-    tempdir="F:\python\pySpark_learn\pySpark\sparkCore"
-    path=os.path.join(tempdir,"num_data")
-    with open(path,"w") as f:
+    tempdir = "F:\python\pySpark_learn\pySpark\sparkCore"
+    path = os.path.join(tempdir, "num_data")
+    with open(path, "w") as f:
         f.write("100")
 
     sc.addFile(path)
 
     def fun(iterable):
         with open(SparkFiles.get("num_data")) as f:
-            value=int(f.readline())
-            return [x*value for x in iterable]
+            value = int(f.readline())
+            return [x * value for x in iterable]
 
-    sc.parallelize(np.arange(10),2).\
-                mapPartitions(fun).\
-                foreach(print)
+    sc.parallelize(np.arange(10), 2). \
+        mapPartitions(fun). \
+        foreach(print)
 
 
 def broadcast_usecase(sc):
@@ -69,13 +71,13 @@ def broadcast_usecase(sc):
         desroty() 释放广播变量,该方法会阻塞直到所有广播变量释放掉为止.该方法调用之后,广播变量就不能使用
         unpersist(blocking=False) 该方法用于释放executor上存储的广播变量,用于释放executor内存资源,但driver节点的广播变量不会释放
     """
-    broad=sc.broadcast("hello")
+    broad = sc.broadcast("hello")
 
-    rdd=sc.parallelize(range(9),3).\
-        map(lambda line:broad.value+str(line)).\
+    rdd = sc.parallelize(range(9), 3). \
+        map(lambda line: broad.value + str(line)). \
         foreach(print)
 
-    print("applicationId:",sc.applicationId)
+    print("applicationId:", sc.applicationId)
 
 
 def setLogLevel_usecase(sc):
@@ -85,7 +87,7 @@ def setLogLevel_usecase(sc):
 
     sc.setLogLevel("DEBUG")
 
-    sc.parallelize(range(10)).\
+    sc.parallelize(range(10)). \
         foreach(print)
 
 
@@ -93,7 +95,7 @@ def getAll_usecase():
     """
         getAll方法获取sparkConf中所有的配置
     """
-    conf=SparkConf()
+    conf = SparkConf()
 
     print(conf.getAll())
 
@@ -102,6 +104,7 @@ def second_sort_usecase(sc):
     """
         二次排序
     """
+
     class MySort():
         def __init__(self, list):
             self.rdd = sc.parallelize(list)
@@ -133,16 +136,59 @@ def second_sort_usecase(sc):
     s = MySort(l)
     print(s.sort(ascending=False).collect())
 
+
 if __name__ == '__main__':
+    import random
+    import json
 
-    sc=generateSparkContext()
+    # def prase_json(waybill):
+    #     res= json.loads(waybill)
+    #
+    #     return res
 
-    # accumulator_usecase(sc)
-    # addFiles_usecase(sc)
-    # broadcast_usecase(sc)
-    # setLogLevel_usecase(sc)
-    getAll_usecase()
+    def generateWaybillInfoList(waybillInfo):
+        """
+            依据运单信息的时间分布,依据hour将一条数据转换为多条数据
+        :param waybillInfo:运单信息
+        :return:list,转换后的运单列表
+        """
+        airFlyTime = waybillInfo.pop("airFlyTm")
 
-    sc.stop()
+        # total = sum(airFlyTime.values())
+
+        waybillList = []
+        for item in airFlyTime.keys():
+            newwaybillinfo = waybillInfo.copy()
+            # probablity = round(airFlyTime.get(item) / total, 3)
+            probablity = airFlyTime.get(item)
+            newwaybillinfo.update({"airFlyTm": (item, probablity)})
+            waybillList.append(newwaybillinfo)
+
+        return waybillList
+
+    sc = generateSparkContext()
+
+    res = sc.textFile("/Users/gavin/Downloads/result.txt").\
+        map(lambda line:json.loads(line)).\
+        flatMap(generateWaybillInfoList).\
+        map(lambda line:line.pop("airFlyTm")[1]).\
+        reduce(lambda x,y:x+y)
+
+    print(res)
+    # def updateWeight(line):
+    #     weight = random.random()
+    #     line.update({"weight": weight})
+    #     return line
+    #
+    #
+    # dataList = [{"type": 0}, {"type": 0}, {"type": 1}, {"type": 1}, {"type": 2}]
+    # sc.parallelize(dataList). \
+    #     map(updateWeight). \
+    #     map(lambda line: (line["type"], line)). \
+    #     groupByKey(). \
+    #     map(lambda line: (line[0], list(line[1]))). \
+    #     foreach(print)
 
 
+
+    # sc.stop()
