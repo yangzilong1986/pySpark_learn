@@ -29,12 +29,15 @@ from pyspark.sql import Window
       For working with window functions.
 """
 
+
 def createSparkSql():
-    spark=SparkSession.builder.\
-                appName("sparkSql").\
-                config("spark.master","local").\
-                getOrCreate()
+    """可以通过添加jar包的方式,将java实现的udaf函数添加到pysark中使用"""
+    spark = SparkSession.builder. \
+        appName("sparkSql"). \
+        config("spark.master", "local"). \
+        getOrCreate()
     return spark
+
 
 def window_rank_usecase(spark):
     """
@@ -46,7 +49,7 @@ def window_rank_usecase(spark):
 
     window = Window.partitionBy("name").orderBy("age")
 
-    df01 = df.withColumn("avg",rank().over(window))
+    df01 = df.withColumn("avg", rank().over(window))
 
     df01.show()
 
@@ -62,7 +65,7 @@ def window_rowsbetween_usecase(spark):
 
     window = Window.partitionBy("name").orderBy("age").rowsBetween(-1, Window.currentRow)
 
-    df.withColumn("avg",avg("age").over(window)).show()
+    df.withColumn("avg", avg("age").over(window)).show()
 
 
 def group_pandas_udf_usecase(spark):
@@ -77,11 +80,17 @@ def group_pandas_udf_usecase(spark):
     df.groupby("id").apply(normalize).show()
 
 
+def group_pivot_usecase(spark):
+    """ 类似与数据透视表功能"""
+    data = [(2012, "java", 100), (2012, "python", 200), (2012, "java", 150), (2013, "java", 80), (2013, "python", 200),
+            (2013, "python", 300)]
 
+    df = spark.createDataFrame(data, ["year", "course", "score"])
 
+    df.groupBy("year").pivot("course").sum("score").show()
 
 
 if __name__ == '__main__':
-    spark=createSparkSql()
+    spark = createSparkSql()
 
-    group_pandas_udf_usecase(spark)
+    group_pivot_usecase(spark)
