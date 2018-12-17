@@ -4,7 +4,7 @@ from pyspark.sql import SparkSession
 
 from pyspark.sql.functions import *
 
-from pySpark.sparkStructStream import common
+from py_spark.sparkStructStream import common
 
 
 

@@ -3,7 +3,7 @@
 from kafka import KafkaProducer
 from datetime import datetime
 import time
-from pySpark.sparkStructStream import common
+from py_spark.sparkStructStream import common
 
 
 def tobytes(line):
