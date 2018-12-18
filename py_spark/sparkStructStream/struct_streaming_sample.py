@@ -7,7 +7,10 @@ from pyspark.sql.functions import *
 from py_spark.sparkStructStream import common
 
 
-
+""" 
+    参考文档
+    https://blog.csdn.net/bluishglc/article/details/80423323
+"""
 def get_spark_instance():
     spark = SparkSession.builder. \
         appName("kafka"). \
