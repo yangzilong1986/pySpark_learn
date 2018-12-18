@@ -16,6 +16,49 @@ def get_spark_instance():
 
     return spark
 
+def kafka_structstreaming_group():
+    """
+        outputMode:输出模式append,update,complete
+            append模式:append模式在有watermarrk标记分组计算的情景下无法触发,原因不明
+                 Append output mode not supported when there are streaming aggregations on streaming DataFrames/DataSets without watermark
+
+            update模式:update模式输出,输入新数据对应的数据
+
+                历史数据 hadoop 3;hive 2
+                输入数据 hadoop
+                输出数据 hadoop 4
+
+            complete模式:complete是全量输出
+                历史数据 hadoop 3;hive 2
+                输入数据 hadoop
+                输出数据 hadoop 4;hive 2
+
+    """
+
+    spark = get_spark_instance()
+
+    df = spark.readStream. \
+        format("kafka"). \
+        option("kafka.bootstrap.servers", common.KAFKA_BROKET_LIST). \
+        option("subscribe", "group_withwatermark"). \
+        load()
+
+    res = df.select(from_utc_timestamp(df["key"].cast("string"), 'GMT+0').alias("timestamp"),
+                    df["value"].cast("string").alias("data"))
+
+    res = res. \
+        groupby(
+            res["data"]). \
+        count()
+
+    query = res.writeStream. \
+        outputMode("complete"). \
+        format("console"). \
+        trigger(processingTime='1 seconds'). \
+        start(truncate=False)
+
+    query.awaitTermination()
+
 
 def kafka_structstreaming_group_withwatermark():
     """
@@ -103,6 +146,7 @@ def kafka_structstreaming_stream_join():
               )
                 如果对时间间隔有两边判断,如下图所示,两种外连接方式均可(同时限制了缓存数据的join范围)
                 数据测试结果:
+                    外部join如果有一侧数据没有join上,该条数据不会显示,外部join的效果与内部join一致
 
               expr(
                   left = right AND
@@ -164,4 +208,4 @@ def kafka_structstreaming_stream_join():
 
 
 if __name__ == '__main__':
-    kafka_structstreaming_stream_join()
+    kafka_structstreaming_group()

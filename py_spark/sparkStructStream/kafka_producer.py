@@ -10,7 +10,7 @@ def tobytes(line):
     return bytes(line, encoding="utf-8")
 
 
-def send_message_group_withwatermark():
+def send_message_group():
     producer = KafkaProducer(bootstrap_servers=common.KAFKA_BROKET_LIST)
 
     for i in range(100):
@@ -22,7 +22,7 @@ def send_message_group_withwatermark():
 
         producer.send("group_withwatermark", key=key, value=value)
 
-        time.sleep(1)
+        time.sleep(2)
 
     producer.flush()
 
@@ -55,8 +55,7 @@ def send_message_stream_join():
 
 
 if __name__ == '__main__':
-    send_message_stream_join()
-
+    send_message_group()
 
 
 
