@@ -70,10 +70,11 @@ def kafka_structstreaming_stream_join():
     """
         数据流join
             数据流join只支持append,update模式输出不支持complete模式输出
-            数据流join必须指定数据失效时间(watermark)，两个数据流都是数据缓存流
+            数据流join必须指定数据失效时间(watermark)，如果是inner模式,两条流都必须是缓存流
+                如果是外连接,被连接一侧必须是缓存流,另外一侧是可选项
 
 
-        inner(如果不指定关联模式,默认为inner)
+        inner(如果不指定关联模式,默认为inner,inner模式必须保证两边的数据流都进行watermark标记)
             只支持append模式输出,inner模式join条件可以只指定关联的key,时间纬度的条件是可选项
              expr(
                   left = right
@@ -88,6 +89,8 @@ def kafka_structstreaming_stream_join():
               )
 
         leftOuter,rightOuter模式支持append,update模式输出,外部关联必须包含时间纬度条件
+            外部连接leftOuter模式至少要保证右侧数据为watermark缓存数据,左侧数据为可选项
+                   rightOuter模式至少要保证左侧数据为watermark缓存数据,右侧数据为可选项
             'Stream-stream outer join between two streaming DataFrame/Datasets is not supported
             without a watermark in the join keys, or a watermark on the nullable side and an appropriate range condition;
                 如果对时间间隔只有单边判断,如下图所示,单边判断必须与外连接方式保持一致(个人猜测避免缓存数据与join流数据时间冲突)
@@ -100,8 +103,7 @@ def kafka_structstreaming_stream_join():
               )
                 如果对时间间隔有两边判断,如下图所示,两种外连接方式均可(同时限制了缓存数据的join范围)
                 数据测试结果:
-                    外部连接数据join的主要依据在于时间范围的判断,leftOuter,roghtOuter设置对数据的关联影响较小(why????)
-                    外部连接数据join的结果等同与inner,如果一侧为空数据无法显示出来(why???)
+
               expr(
                   left = right AND
                   lefttime >= righttime AND
@@ -135,7 +137,7 @@ def kafka_structstreaming_stream_join():
                       df02["value"].cast("string").alias("right"))
 
 
-    res03 =res01.withWatermark('lefttime', '10 minute')
+    res03 =res01
 
     res04 =res02.withWatermark('righttime', '20 minute')
 
