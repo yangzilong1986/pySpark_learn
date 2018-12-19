@@ -10,7 +10,7 @@ from py_spark.sparkStructStream import common
 """ 
     参考文档
     https://blog.csdn.net/L_15156024189/article/details/81612860
-    https://blog.csdn.net/bluishglc/article/details/80423323
+    https://blog.csdn.net/bluishglc/article/details/80423323(不同情景的输出模式组合总结)
 """
 def get_spark_instance():
     spark = SparkSession.builder. \
@@ -22,9 +22,13 @@ def get_spark_instance():
 
 def kafka_structstreaming_group():
     """
+        没有水印的聚合输出,那就意味着我们设置了一个无限长的时间的watermark,所以就不可能无限期的延时到达,所以也就不可能有一个稳定的聚合状态
+        所以就不能以append模式输出,只能是更新输出(update),要么每次全集输出(complete)
+
         outputMode:输出模式append,update,complete
-            append模式:append模式在有watermarrk标记分组计算的情景下无法触发,原因不明
+            append模式:
                  Append output mode not supported when there are streaming aggregations on streaming DataFrames/DataSets without watermark
+
 
             update模式:update模式输出,输入新数据对应的数据
 
@@ -69,8 +73,11 @@ def kafka_structstreaming_group_withwatermark():
         withWatermark:水印标记,水印标记的时间表示数据存留时间,超过存留时间,数据自动消失
         window:数据滑动窗口,两个参数,第一个参数是窗口时间长度,第二个窗口是滑动时间长度
 
-        outputMode:输出模式append,update,complete
-            append模式:append模式在有watermarrk标记分组计算的情景下无法触发,原因不明
+        outputMode:包含水印的窗口模式目前仅支持update模式
+            append模式:
+                 append模式,超出了watermark的聚合状态会被丢弃,spark必须保证聚合结果是稳定的之后的一个最终值,所有聚合结果的输出会被推迟到watermark关闭之后的那个时刻
+                 而不是以当前时间为终止时间的那个窗口时间
+                 append模式在有watermarrk标记分组计算的情景下无法触发,原因不明
                  Append output mode not supported when there are streaming aggregations on streaming DataFrames/DataSets without watermark
 
             update模式:update模式输出,输入新数据对应的数据
@@ -96,14 +103,14 @@ def kafka_structstreaming_group_withwatermark():
                     df["value"].cast("string").alias("data"))
 
     res = res. \
-        withWatermark('timestamp', '10 seconds').\
+        withWatermark('timestamp', '20 seconds').\
         groupby(
             window(res["timestamp"], "10 seconds", "5 seconds"),
             res["data"]). \
         count()
 
     query = res.writeStream. \
-        outputMode("complete"). \
+        outputMode("update"). \
         format("console"). \
         trigger(processingTime='5 seconds'). \
         start(truncate=False)
@@ -115,11 +122,15 @@ def kafka_structstreaming_group_withwatermark():
 def kafka_structstreaming_stream_join():
 
     """
+        https://blog.csdn.net/bluishglc/article/details/81326624
         数据流join
             数据流join只支持append,update模式输出不支持complete模式输出
             数据流join必须指定数据失效时间(watermark)，如果是inner模式,两条流都必须是缓存流
                 如果是外连接,被连接一侧必须是缓存流,另外一侧是可选项
 
+        append模式和update模式区别:
+            update模式总是倾向于尽可能早的将处理结果输出,12:05的数据如果在12:00-12:10的时间轴范围内会及时输出
+            append模式总是倾向于推迟计算结果,确保结果稳定,12:05的数据如果是在12:00-12:10的时间轴范围内会在12:10时间轴结束后输出
 
         inner(如果不指定关联模式,默认为inner,inner模式必须保证两边的数据流都进行watermark标记)
             只支持append模式输出,inner模式join条件可以只指定关联的key,时间纬度的条件是可选项
@@ -187,17 +198,16 @@ def kafka_structstreaming_stream_join():
 
     res03 =res01
 
-    res04 =res02.withWatermark('righttime', '20 minute')
+    res04 =res02.withWatermark('righttime', '2 minute')
 
 
     res =res03.join(
         res04,
         expr("""
              left = right AND
-             lefttime >= righttime AND
-             lefttime <= righttime + interval 5 minute
+             lefttime >= righttime
              """),
-            "rightOuter"
+            "leftOuter"
          )
 
     query = res.writeStream. \
@@ -212,4 +222,4 @@ def kafka_structstreaming_stream_join():
 
 
 if __name__ == '__main__':
-    kafka_structstreaming_group()
+    kafka_structstreaming_stream_join()

@@ -46,7 +46,7 @@ def send_message_stream_join():
 
         producer.send("structStream01", key=key, value=value01)
         time.sleep(1)
-        producer.send("structStream02", key=key, value=value02)
+        # producer.send("structStream02", key=key, value=value02)
 
 
     producer.flush()
@@ -55,8 +55,7 @@ def send_message_stream_join():
 
 
 if __name__ == '__main__':
-    send_message_group()
-
+    send_message_stream_join()
 
 
 
